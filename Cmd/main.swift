@@ -9,15 +9,17 @@ func input() -> String
 }
 
 
-do {
-    while true {
+while true {
+    do
+    {
         var parsed = try parse(input())
         print(try eval(parsed).strValue())
     }
+    catch Error.Error(message : let theMessage)
+    {
+        print(theMessage)
+    }
 }
+
     
-catch Error.Error(message : let theMessage)
-{
-    print(theMessage)
-}
 

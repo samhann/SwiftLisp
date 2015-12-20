@@ -13,7 +13,12 @@ while true {
     do
     {
         var parsed = try parse(input())
-        print(try eval(parsed).strValue())
+        var evaled   = try eval(parsed)
+        
+        switch evaled  {
+            case .Empty  : break;
+            default     : print(evaled.strValue())
+        }
     }
     catch Error.Error(message : let theMessage)
     {

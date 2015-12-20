@@ -64,37 +64,36 @@ enum sExp
         case .Lambda(_):
             return "Lambda"
         case .Cons(let f, let s):
-            return "(" + f.strValue() + "," + s.strValue() + ")"
+            return "("+f.strValue() + "," + s.strValue()+")"
         case Empty:
-            return ""
+            return "Void"
         }
     }
     
     func isNil()->Bool
     {
         switch self {
-        case .Atomic(let atom) : return atom.isNil()
-        default : return false
+            case .Atomic(let atom) : return atom.isNil()
+            default : return false
         }
     }
     
     func floatValue() throws -> Float
     {
         switch self {
-        case .Atomic(let atom):
-            switch atom {
-            case .Num(let float):
-                return float
-            case .Boolean(let bool):
-                return bool ? 1.0 : 0.0
+            case .Atomic(let atom):
+                switch atom {
+                case .Num(let float):
+                    return float
+                case .Boolean(let bool):
+                    return bool ? 1.0 : 0.0
+                default:
+                    throw Error.Error(message: "Could not cast exp to float")
+                }
+            case .Cons(let f, _):
+                return try f.floatValue()
             default:
                 throw Error.Error(message: "Could not cast exp to float")
-            }
-        case .Cons(let f, _):
-            return try f.floatValue()
-        default:
-            throw Error.Error(message: "Could not cast exp to float")
-            
         }
     }
     
@@ -117,30 +116,31 @@ enum sExp
     func boolValue() throws -> Bool
     {
         switch self {
+
         case.Atomic(let atom):
+        
             switch atom {
-            case .Boolean(let bool):
-                return bool
-            case .Nil:
-                return false
-            default :
-                return true
+            
+                case .Boolean(let bool):
+                        return bool
+                    case .Nil:
+                        return false
+                    default :
+                        return true
+                    }
+            
+                default:
+                    return true
             }
-        default:
-            return true
-        }
     }
 }
 
 enum Error : ErrorType
 {
     case Error(message : String)
-    
 }
 
 //:# Functions
-
-
 //: Cons joins two sExpressions together
 
 func cons(let first : sExp , second : sExp)-> sExp
@@ -230,18 +230,18 @@ func lMap(let exp : sExp , let lambda : sExp) throws ->sExp
         switch lambda {
         case .Lambda(let aLambda):
             switch exp {
-            case .Atomic(let atom):
-                switch atom {
-                case .Nil:
-                    return exp
+                case .Atomic(let atom):
+                    switch atom {
+                    case .Nil:
+                        return exp
+                    default:
+                        return try aLambda(exp)
+                    }
+                    
+                case .Cons(let first, let second):
+                    return  .Cons(try aLambda(first),try lMap(second, lambda: .Lambda(aLambda)))
                 default:
-                    return try aLambda(exp)
-                }
-                
-            case .Cons(let first, let second):
-                return  .Cons(try aLambda(first),try lMap(second, lambda: .Lambda(aLambda)))
-            default:
-                throw Error.Error(message: "Expression to be mapped over is not an expression")
+                    throw Error.Error(message: "Expression to be mapped over is not an expression")
             }
         default:
             throw Error.Error(message: "Expected lambda in call to map")
@@ -313,11 +313,9 @@ func executeFloatLambda( expr : sExp , let aLambda : (Float,Float)->Float) throw
 func makeFloatReducer(theLambda : (Float,Float)-> Float)->sExp throws -> sExp
 {
     return { sExp in
-        return try reduceWithFirst({ (theExp) in
-            return try executeFloatLambda(theExp, aLambda: theLambda)
-            }
-            ,
-            exp: sExp)
+            return try reduceWithFirst({ (theExp) in
+                return try executeFloatLambda(theExp, aLambda: theLambda)
+            },exp: sExp)
     }
 }
 
@@ -360,8 +358,6 @@ func readFromTokens() throws -> sExp
     }
 }
 
-
-
 func parse(let program : String) throws ->sExp
 {
     globalTokens  = tokenize(program)
@@ -384,8 +380,8 @@ class Environment
             "+" : .Lambda(makeFloatReducer {$0 + $1}),
             "-" : .Lambda(makeFloatReducer {$0 - $1}),
             "/" : .Lambda(makeFloatReducer {$0 / $1}),
-            "max" : .Lambda(makeFloatReducer { return $0 > $1 ? $0 : $1}),
-            "min" : .Lambda(makeFloatReducer { return $0 < $1 ? $0 : $1}),
+            "max" : .Lambda({ (exp:sExp)throws ->sExp in return try makeFloatReducer { return $0 > $1 ? $0 : $1}(try car(exp))}),
+            "min" : .Lambda({ (exp:sExp)throws ->sExp in return try makeFloatReducer { return $0 < $1 ? $0 : $1}(try car(exp))}),
             ">"     : .Lambda({ return try binaryBoolOp($0, lambda: { $0 > $1}) }),
             "<"     : .Lambda({ return try binaryBoolOp($0, lambda: { $0 < $1}) }),
             ">="    : .Lambda({ return try binaryBoolOp($0, lambda: { $0 >= $1}) }),
@@ -425,20 +421,22 @@ class Environment
         self.dictionary[x] = val
     }
     
-    func update(let params: sExp , let args : sExp) throws
+    func update(let params: sExp , let args : sExp) throws  -> Environment
     {
         switch params {
         case .Cons(let f, let s):
             self.set(try f.stringValue(), val: try car(args))
             switch s {
             case .Cons(_, _):
-                try self.update(s, args: try cdr(args))
+                return try self.update(s, args: try cdr(args))
             default:
                 break;
             }
             
         default: break
         }
+        return self
+        
     }
     
 }
@@ -468,10 +466,7 @@ func eval_atom(let x : sExp , let env : Environment = globalEnv) throws ->sExp
 func executeProc( let lambda :sExp ,let args: sExp, let env : Environment)->sExp throws ->sExp
 {
     return { params in
-        
-        let newEnv = Environment(anOuter: env)
-        try newEnv.update(args,args: params)
-        return try eval(lambda , env: newEnv)
+        return try eval(lambda , env: Environment(anOuter: env).update(args, args: params))
     }
 }
 

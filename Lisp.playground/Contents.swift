@@ -1,4 +1,4 @@
-//:# LisPy.Swift - A Toy Lisp Interpreter 
+//:# LisPy.Swift - A Toy Lisp Interpreter
 
 //: After reading [Peter Norvigs code](http://norvig.com/lispy.html) for a Lisp interpreter in Python , I decided to take a stab at in Swift. There is a lot more code due to the strong typing and my decision to implement atoms using Enums.
 
@@ -431,7 +431,7 @@ class Environment
         case .Cons(let f, let s):
             self.set(try f.stringValue(), val: try car(args))
             switch s {
-            case .Cons(let first, let rest):
+            case .Cons(_, _):
                 try self.update(s, args: try cdr(args))
             default:
                 break;
